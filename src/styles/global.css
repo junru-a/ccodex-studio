@@ -877,6 +877,136 @@ html, body, #root {
   border-bottom: 1px solid var(--danger);
 }
 
+.skeleton-line,
+.skeleton-button,
+.skeleton-input,
+.skeleton-dot {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.skeleton-line::after,
+.skeleton-button::after,
+.skeleton-input::after,
+.skeleton-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+.skeleton-line {
+  width: 72%;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.skeleton-line + .skeleton-line {
+  margin-top: 8px;
+}
+
+.skeleton-line--xs {
+  width: 72px;
+  height: 8px;
+}
+
+.skeleton-line--short {
+  width: 96px;
+}
+
+.skeleton-line--medium {
+  width: 46%;
+}
+
+.skeleton-line--wide {
+  width: 88%;
+}
+
+.skeleton-line--title {
+  width: min(220px, 72%);
+  height: 14px;
+}
+
+.skeleton-button {
+  width: 64px;
+  height: 26px;
+  border-radius: 7px;
+}
+
+.skeleton-button--small {
+  width: 42px;
+  height: 20px;
+  border-radius: 5px;
+}
+
+.skeleton-input {
+  width: 100%;
+  height: 34px;
+  border-radius: 7px;
+}
+
+.skeleton-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  flex: 0 0 auto;
+}
+
+.sidebar-skeleton {
+  padding: 0 8px 12px;
+}
+
+.sidebar-skeleton__group {
+  margin: 1px 0 8px;
+}
+
+.sidebar-skeleton__project {
+  min-height: 42px;
+  padding: 7px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sidebar-skeleton__copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-skeleton__session {
+  margin: 2px 8px 2px 48px;
+  padding: 8px;
+}
+
+.skills-skeleton-list {
+  padding: 6px 0 12px;
+}
+
+.skill-item--skeleton {
+  cursor: default;
+}
+
+.skill-item--skeleton:hover {
+  background: transparent;
+}
+
+.context-card--skeleton {
+  display: block;
+}
+
+.project-context-strip--skeleton {
+  gap: 10px;
+}
+
+@keyframes skeleton-pulse {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 /* Product polish overrides */
 :root {
   --bg-primary: #101010;

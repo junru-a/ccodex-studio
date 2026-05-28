@@ -1,10 +1,13 @@
 // ── Shared types between stores and IPC ──
 
+export type SessionEngine = 'claude' | 'codex';
+
 export interface SessionMeta {
   id: string;
   jsonlPath: string;
   projectKey: string;
   projectPath: string;
+  engine: SessionEngine;
   title: string;
   createdAt: number;
   updatedAt: number;
@@ -25,6 +28,7 @@ export interface SkillInfo {
   name: string;
   description: string;
   scope: 'global' | 'project' | 'plugin';
+  origin?: 'claude' | 'codex' | 'agents' | 'project';
   path: string;
   source: string;
   argumentHint?: string;
@@ -37,7 +41,7 @@ export interface SkillInfo {
 export interface ModelProfile {
   id: string;
   name: string;
-  mode: 'env' | 'ccr';
+  mode: 'env' | 'ccr' | 'codex';
   env: Record<string, string>;
   active: boolean;
   createdAt: number;

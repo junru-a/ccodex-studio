@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ModelProfile } from '../types/shared';
+import type { ModelProfile, SessionEngine } from '../types/shared';
 
 type MainView = 'terminal' | 'session-preview';
 type Language = 'zh' | 'en';
@@ -23,6 +23,7 @@ interface AppState {
 
   currentProjectPath: string | null;
   pendingResumeSessionId: string | null;
+  pendingResumeEngine: SessionEngine | null;
 
   toggleSidebar: () => void;
   toggleSkillsPanel: () => void;
@@ -34,16 +35,19 @@ interface AppState {
   setMainView: (view: MainView) => void;
   requestNewSession: () => void;
 
-  loadProfiles: () => Promise<void>;
+  loadProfiles: (force?: boolean) => Promise<void>;
   setActiveProfile: (profileId: string) => Promise<void>;
   detectCCR: () => Promise<void>;
 
   setCurrentProjectPath: (path: string | null) => void;
-  requestResumeSession: (sessionId: string, projectPath: string) => void;
+  requestResumeSession: (sessionId: string, projectPath: string, engine?: SessionEngine) => void;
   clearPendingResumeSession: () => void;
 }
 
 export type { ModelProfile, Language };
+
+let profilesRequest: Promise<void> | null = null;
+let ccrRequest: Promise<void> | null = null;
 
 export const useAppStore = create<AppState>((set, get) => ({
   sidebarVisible: true,
@@ -64,6 +68,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   currentProjectPath: null,
   pendingResumeSessionId: null,
+  pendingResumeEngine: null,
 
   toggleSidebar: () => set((s) => ({ sidebarVisible: !s.sidebarVisible })),
   toggleSkillsPanel: () => set((s) => ({ skillsPanelVisible: !s.skillsPanelVisible })),
@@ -86,42 +91,59 @@ export const useAppStore = create<AppState>((set, get) => ({
   setMainView: (view) => set({ mainView: view }),
   requestNewSession: () => set((s) => ({ mainView: 'terminal', pendingResumeSessionId: null, newSessionRequestId: s.newSessionRequestId + 1 })),
 
-  loadProfiles: async () => {
-    try {
-      const result = await window.ccodex.loadProfiles();
-      if (result.success && result.data) {
-        const profiles = result.data;
-        const active = profiles.find((p) => p.active);
-        set({ profiles, activeProfileId: active?.id || null });
+  loadProfiles: async (force = false) => {
+    if (!force && profilesRequest) return profilesRequest;
+    if (!force && get().profiles.length > 0) return;
+
+    profilesRequest = (async () => {
+      try {
+        const result = await window.ccodex.loadProfiles();
+        if (result.success && result.data) {
+          const profiles = result.data;
+          const active = profiles.find((p) => p.active);
+          set({ profiles, activeProfileId: active?.id || null });
+        }
+      } catch (err) {
+        console.error('Failed to load profiles:', err);
+      } finally {
+        profilesRequest = null;
       }
-    } catch (err) {
-      console.error('Failed to load profiles:', err);
-    }
+    })();
+
+    return profilesRequest;
   },
 
   setActiveProfile: async (profileId) => {
     try {
       await window.ccodex.setActiveProfile(profileId);
       set({ activeProfileId: profileId });
-      await get().loadProfiles();
+      await get().loadProfiles(true);
     } catch (err) {
       console.error('Failed to set active profile:', err);
     }
   },
 
   detectCCR: async () => {
-    try {
-      const result = await window.ccodex.detectCCR();
-      if (result.success && result.data) {
-        set({ ccrDetected: result.data.installed });
+    if (ccrRequest) return ccrRequest;
+
+    ccrRequest = (async () => {
+      try {
+        const result = await window.ccodex.detectCCR();
+        if (result.success && result.data) {
+          set({ ccrDetected: result.data.installed });
+        }
+      } catch {
+        // Detection is optional.
+      } finally {
+        ccrRequest = null;
       }
-    } catch {
-      // Detection is optional.
-    }
+    })();
+
+    return ccrRequest;
   },
 
   setCurrentProjectPath: (path) => set({ currentProjectPath: path }),
-  requestResumeSession: (sessionId, projectPath) =>
-    set({ currentProjectPath: projectPath, pendingResumeSessionId: sessionId, mainView: 'terminal' }),
-  clearPendingResumeSession: () => set({ pendingResumeSessionId: null }),
+  requestResumeSession: (sessionId, projectPath, engine = 'claude') =>
+    set({ currentProjectPath: projectPath, pendingResumeSessionId: sessionId, pendingResumeEngine: engine, mainView: 'terminal' }),
+  clearPendingResumeSession: () => set({ pendingResumeSessionId: null, pendingResumeEngine: null }),
 }));

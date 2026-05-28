@@ -5,6 +5,8 @@ import { matchesSkillCnQuery } from '../utils/skill-cn';
 interface SkillsState {
   skills: SkillInfo[];
   loading: boolean;
+  loaded: boolean;
+  loadedProjectPath?: string;
   error: string | null;
   searchQuery: string;
   selectedSkill: SkillInfo | null;
@@ -19,9 +21,14 @@ interface SkillsState {
 
 export type { SkillInfo };
 
+let skillsRequest: Promise<void> | null = null;
+let lastRequestedProjectPath: string | undefined;
+
 export const useSkillsStore = create<SkillsState>((set, get) => ({
   skills: [],
   loading: false,
+  loaded: false,
+  loadedProjectPath: undefined,
   error: null,
   searchQuery: '',
   selectedSkill: null,
@@ -34,17 +41,33 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
   })(),
 
   loadSkills: async (projectPath?: string) => {
+    if (skillsRequest && lastRequestedProjectPath === projectPath) return skillsRequest;
+    if (!skillsRequest && get().loaded && get().loadedProjectPath === projectPath) return;
+
+    const requestedProjectPath = projectPath;
+    lastRequestedProjectPath = projectPath;
     set({ loading: true, error: null });
-    try {
-      const result = await window.ccodex.scanSkills(projectPath);
-      if (result.success) {
-        set({ skills: result.data!, loading: false });
-      } else {
-        set({ error: result.error || 'Unknown error', loading: false });
+    skillsRequest = (async () => {
+      try {
+        const result = await window.ccodex.scanSkills(requestedProjectPath);
+        if (lastRequestedProjectPath !== requestedProjectPath) return;
+        if (result.success) {
+          set({ skills: result.data!, loading: false, loaded: true, loadedProjectPath: requestedProjectPath });
+        } else {
+          set({ error: result.error || 'Unknown error', loading: false, loaded: true, loadedProjectPath: requestedProjectPath });
+        }
+      } catch (err) {
+        if (lastRequestedProjectPath === requestedProjectPath) {
+          set({ error: String(err), loading: false, loaded: true, loadedProjectPath: requestedProjectPath });
+        }
+      } finally {
+        if (lastRequestedProjectPath === requestedProjectPath) {
+          skillsRequest = null;
+        }
       }
-    } catch (err) {
-      set({ error: String(err), loading: false });
-    }
+    })();
+
+    return skillsRequest;
   },
 
   setSearchQuery: (query) => set({ searchQuery: query }),

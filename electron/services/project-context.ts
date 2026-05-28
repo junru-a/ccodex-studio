@@ -30,7 +30,6 @@ function detectGitBranch(projectPath: string): string | undefined {
 function detectPackageManager(projectPath: string): string | undefined {
   if (fs.existsSync(path.join(projectPath, 'pnpm-lock.yaml'))) return 'pnpm';
   if (fs.existsSync(path.join(projectPath, 'yarn.lock'))) return 'yarn';
-  if (fs.existsSync(path.join(projectPath, 'bun.lockb'))) return 'bun';
   if (fs.existsSync(path.join(projectPath, 'package-lock.json'))) return 'npm';
   return undefined;
 }

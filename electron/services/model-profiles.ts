@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import { PATHS } from '../paths';
 
-export type ProfileMode = 'env' | 'ccr';
+export type ProfileMode = 'env' | 'ccr' | 'codex';
 
 export interface ModelProfile {
   id: string;
@@ -42,8 +42,33 @@ const DEEPSEEK_DEFAULT: ModelProfile = {
   createdAt: Date.now(),
 };
 
+const CODEX_DEFAULT: ModelProfile = {
+  id: 'codex-default',
+  name: 'Codex',
+  mode: 'codex',
+  env: {},
+  active: false,
+  createdAt: Date.now(),
+};
+
 function defaultProfiles(): ModelProfile[] {
-  return [CLAUDE_CODE_DEFAULT, DEEPSEEK_DEFAULT];
+  return [CLAUDE_CODE_DEFAULT, DEEPSEEK_DEFAULT, CODEX_DEFAULT];
+}
+
+function ensureBuiltInProfiles(profiles: ModelProfile[]): ModelProfile[] {
+  let next = profiles;
+
+  if (!next.find((profile) => profile.id === CODEX_DEFAULT.id)) {
+    next = [
+      ...next,
+      {
+        ...CODEX_DEFAULT,
+        createdAt: Date.now(),
+      },
+    ];
+  }
+
+  return next;
 }
 
 /**
@@ -67,7 +92,11 @@ export function loadProfiles(): ModelProfile[] {
     const raw = fs.readFileSync(profilesPath, 'utf-8');
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) {
-      return parsed;
+      const profiles = ensureBuiltInProfiles(parsed);
+      if (profiles.length !== parsed.length) {
+        saveProfiles(profiles);
+      }
+      return profiles;
     }
   } catch {
     // Corrupted file — reset to defaults

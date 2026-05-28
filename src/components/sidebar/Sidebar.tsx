@@ -12,33 +12,33 @@ const i18n = {
     projects: '\u9879\u76ee',
     chats: '\u5bf9\u8bdd',
     loading: '\u6b63\u5728\u8bfb\u53d6\u5386\u53f2\u4f1a\u8bdd...',
-    empty: '\u6682\u65e0 Claude Code \u5386\u53f2\u3002',
-    emptyHint: '\u5728\u9879\u76ee\u91cc\u8fd0\u884c claude \u540e\u4f1a\u51fa\u73b0\u5728\u8fd9\u91cc\u3002',
+    empty: '\u6682\u65e0 Claude Code / Codex \u5386\u53f2\u3002',
+    emptyHint: '\u5728\u9879\u76ee\u91cc\u8fd0\u884c claude \u6216 codex \u540e\u4f1a\u51fa\u73b0\u5728\u8fd9\u91cc\u3002',
     session: '\u6761\u4f1a\u8bdd',
     msg: '\u6761',
     minute: '\u5206',
     hour: '\u5c0f\u65f6',
     day: '\u5929',
-    previewHint: '\u5355\u51fb\u9884\u89c8\uff0c\u53cc\u51fb\u6062\u590d\u5230 Claude Code',
+    previewHint: '\u5355\u51fb\u9884\u89c8\uff0c\u53cc\u51fb\u6062\u590d\u5230\u5bf9\u5e94\u5f15\u64ce',
     chatsHint: '\u9009\u62e9\u5386\u53f2\u53ef\u9884\u89c8\uff0c\u53cc\u51fb\u53ef\u6062\u590d\u3002',
   },
   en: {
     newChat: 'New chat',
     search: 'Search',
     searchTitle: 'Search projects and session history',
-    newChatTitle: 'Start a fresh Claude Code session',
+    newChatTitle: 'Start a fresh engine session',
     searchPlaceholder: 'Search projects or sessions...',
     projects: 'Projects',
     chats: 'Chats',
     loading: 'Loading session history...',
-    empty: 'No Claude Code history found.',
-    emptyHint: 'Run claude in a project and it will appear here.',
+    empty: 'No Claude Code / Codex history found.',
+    emptyHint: 'Run claude or codex in a project and it will appear here.',
     session: 'sessions',
     msg: 'msgs',
     minute: 'm',
     hour: 'h',
     day: 'd',
-    previewHint: 'Click to preview, double-click to resume in Claude Code',
+    previewHint: 'Click to preview, double-click to resume with its engine',
     chatsHint: 'Select history to preview. Double-click to resume.',
   },
 };
@@ -58,6 +58,8 @@ export const Sidebar: React.FC<{ visible: boolean }> = ({ visible }) => {
     setCurrentProjectPath,
     requestResumeSession,
     requestNewSession,
+    setActiveProfile,
+    profiles,
     currentProjectPath,
     language,
   } = useAppStore();
@@ -68,8 +70,9 @@ export const Sidebar: React.FC<{ visible: boolean }> = ({ visible }) => {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
   useEffect(() => {
-    loadProjects();
-  }, [loadProjects]);
+    if (!visible || projects.length > 0) return;
+    void loadProjects();
+  }, [loadProjects, projects.length, visible]);
 
   const q = sessionSearchQuery.trim().toLowerCase();
   const displayProjects = q
@@ -96,10 +99,14 @@ export const Sidebar: React.FC<{ visible: boolean }> = ({ visible }) => {
     setActiveSessionId(session.id);
   };
 
-  const handleSessionDoubleClick = (session: (typeof projects)[number]['sessions'][number]) => {
+  const handleSessionDoubleClick = async (session: (typeof projects)[number]['sessions'][number]) => {
     selectSession(session.id);
     setActiveSessionId(session.id);
-    requestResumeSession(session.id, session.projectPath);
+    if (session.engine === 'codex') {
+      const codexProfile = profiles.find((profile) => profile.mode === 'codex');
+      if (codexProfile) await setActiveProfile(codexProfile.id);
+    }
+    requestResumeSession(session.id, session.projectPath, session.engine);
   };
 
   return (
@@ -134,7 +141,7 @@ export const Sidebar: React.FC<{ visible: boolean }> = ({ visible }) => {
       <div className="sidebar__list">
         <div className="sidebar__section-header">{t.projects}</div>
 
-        {loading && <div className="loading-spinner">{t.loading}</div>}
+        {loading && <SidebarListSkeleton label={t.loading} />}
 
         {!loading && displayProjects.length === 0 && (
           <div className="sidebar__empty">
@@ -178,6 +185,7 @@ export const Sidebar: React.FC<{ visible: boolean }> = ({ visible }) => {
                       <span className="session-item__title">{session.title}</span>
                       <span className="session-item__meta">
                         <span>{formatDate(session.updatedAt, language)}</span>
+                        <span>{session.engine === 'codex' ? 'Codex' : 'Claude'}</span>
                         <span>{session.messageCount} {t.msg}</span>
                         {session.model && <span>{session.model}</span>}
                       </span>
@@ -194,6 +202,28 @@ export const Sidebar: React.FC<{ visible: boolean }> = ({ visible }) => {
     </aside>
   );
 };
+
+const SidebarListSkeleton: React.FC<{ label: string }> = ({ label }) => (
+  <div className="sidebar-skeleton" aria-label={label}>
+    {Array.from({ length: 5 }).map((_, index) => (
+      <div key={index} className="sidebar-skeleton__group">
+        <div className="sidebar-skeleton__project">
+          <div className="skeleton-dot" />
+          <div className="sidebar-skeleton__copy">
+            <div className="skeleton-line skeleton-line--medium" />
+            <div className="skeleton-line skeleton-line--wide" />
+          </div>
+        </div>
+        {index < 2 && (
+          <div className="sidebar-skeleton__session">
+            <div className="skeleton-line skeleton-line--medium" />
+            <div className="skeleton-line skeleton-line--short" />
+          </div>
+        )}
+      </div>
+    ))}
+  </div>
+);
 
 function formatDate(ts: number, language: 'zh' | 'en'): string {
   const d = new Date(ts);

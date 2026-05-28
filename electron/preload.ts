@@ -20,6 +20,7 @@ const IPC_API = {
     projectPath: string;
     profileId?: string;
     resumeSessionId?: string;
+    resumeEngine?: 'claude' | 'codex';
     cols?: number;
     rows?: number;
   }): Promise<unknown> =>

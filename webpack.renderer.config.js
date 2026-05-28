@@ -11,8 +11,9 @@ module.exports = (env, argv) => {
     devtool: isDev ? 'cheap-module-source-map' : 'source-map',
     output: {
       path: path.resolve(__dirname, 'dist-renderer'),
-      filename: 'bundle.js',
-      publicPath: '/',
+      filename: '[name].js',
+      chunkFilename: '[name].js',
+      publicPath: isDev ? '/' : './',
     },
     resolve: {
       extensions: ['.tsx', '.ts', '.js', '.jsx'],
@@ -38,6 +39,25 @@ module.exports = (env, argv) => {
         template: './public/index.html',
       }),
     ],
+    optimization: {
+      splitChunks: {
+        chunks: 'all',
+        cacheGroups: {
+          katex: {
+            test: /[\\/]node_modules[\\/]katex[\\/]/,
+            name: 'katex',
+            priority: 20,
+            enforce: true,
+          },
+          vendors: {
+            test: /[\\/]node_modules[\\/]/,
+            name: 'vendors',
+            priority: 10,
+            enforce: true,
+          },
+        },
+      },
+    },
     devServer: {
       port: 9000,
       hot: true,

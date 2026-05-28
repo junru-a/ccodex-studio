@@ -21,6 +21,12 @@ export const PATHS = {
   claudeMemory: (projectKey: string) =>
     path.join(resolveHome('~/.claude/projects'), projectKey, 'memory'),
 
+  // Codex paths
+  codexHome: resolveHome('~/.codex'),
+  codexSessions: resolveHome('~/.codex/sessions'),
+  codexHistory: resolveHome('~/.codex/history.jsonl'),
+  codexSkills: resolveHome('~/.codex/skills'),
+
   // Claude Code Router
   ccrConfig: resolveHome('~/.claude-code-router/config.json'),
 

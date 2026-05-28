@@ -1,16 +1,25 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useAppStore } from '../../stores/app-store';
 import { useContextStore } from '../../stores/context-store';
 
 export const ProjectContextStrip: React.FC = () => {
   const { currentProjectPath } = useAppStore();
-  const { projectContext, loadProjectContext } = useContextStore();
+  const { projectContext, loading } = useContextStore();
 
-  useEffect(() => {
-    loadProjectContext(currentProjectPath);
-  }, [currentProjectPath, loadProjectContext]);
+  if (!currentProjectPath) return null;
 
-  if (!currentProjectPath || !projectContext) return null;
+  if (loading && !projectContext) {
+    return (
+      <div className="project-context-strip project-context-strip--skeleton" aria-hidden="true">
+        <div className="skeleton-line skeleton-line--short" />
+        <div className="skeleton-line skeleton-line--xs" />
+        <div className="project-context-strip__spacer" />
+        <div className="skeleton-button skeleton-button--small" />
+      </div>
+    );
+  }
+
+  if (!projectContext) return null;
 
   return (
     <div className="project-context-strip">
