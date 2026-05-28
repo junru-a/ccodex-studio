@@ -1,6 +1,7 @@
 import { ipcMain, dialog, shell, BrowserWindow } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as fsSync from 'fs';
 import { scanProjects, readSessionJsonl } from './services/session-manager';
 import { scanAllSkills, searchLocalSkills } from './services/skills-scanner';
 import {
@@ -64,6 +65,54 @@ function enqueueTerminalTask<T>(task: () => Promise<T>): Promise<T> {
     () => undefined
   );
   return next;
+}
+
+function buildResumeArgs(
+  profile: ReturnType<typeof getActiveProfile>,
+  sessionId?: string,
+  resumeEngine?: 'claude' | 'codex'
+): string[] {
+  if (!sessionId) return [];
+  if (profile?.mode === 'codex') {
+    return resumeEngine === 'codex' ? ['resume', sessionId] : ['resume', '--last'];
+  }
+  return ['--resume', sessionId];
+}
+
+function resolveLaunchProfile(
+  profiles: ReturnType<typeof loadProfiles>,
+  requestedProfileId?: string,
+  resumeEngine?: 'claude' | 'codex'
+) {
+  if (resumeEngine === 'codex') {
+    return profiles.find((p) => p.mode === 'codex')
+      || (requestedProfileId ? profiles.find((p) => p.id === requestedProfileId) : undefined)
+      || getActiveProfile();
+  }
+
+  if (resumeEngine === 'claude') {
+    const requested = requestedProfileId ? profiles.find((p) => p.id === requestedProfileId) : undefined;
+    if (requested && requested.mode !== 'codex') return requested;
+    return profiles.find((p) => p.active && p.mode !== 'codex')
+      || profiles.find((p) => p.mode !== 'codex')
+      || requested
+      || getActiveProfile();
+  }
+
+  return requestedProfileId
+    ? profiles.find((p) => p.id === requestedProfileId)
+    : getActiveProfile();
+}
+
+function resolveProjectPath(projectPath: string): string {
+  const resolved = path.resolve(projectPath);
+  const stat = fsSync.statSync(resolved);
+
+  if (!stat.isDirectory()) {
+    throw new Error(`Project path is not a directory: ${resolved}`);
+  }
+
+  return resolved;
 }
 
 async function disposeCurrentPty(): Promise<void> {
@@ -147,26 +196,30 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       projectPath: string;
       profileId?: string;
       resumeSessionId?: string;
+      resumeEngine?: 'claude' | 'codex';
       cols?: number;
       rows?: number;
     }) => {
       return enqueueTerminalTask(async () => {
         try {
-        console.log('[ipc] terminal:create request:', options);
+        const projectPath = resolveProjectPath(options.projectPath);
+        console.log('[ipc] terminal:create request:', {
+          ...options,
+          projectPath,
+          originalProjectPath: options.projectPath,
+        });
 
         await disposeCurrentPty();
         const generation = terminalGeneration + 1;
         terminalGeneration = generation;
 
         const profiles = loadProfiles();
-        const profile = options.profileId
-          ? profiles.find((p) => p.id === options.profileId)
-          : getActiveProfile();
+        const profile = resolveLaunchProfile(profiles, options.profileId, options.resumeEngine);
 
         const launchedPty = launchClaudePty({
-          projectPath: options.projectPath,
+          projectPath,
           profile,
-          args: options.resumeSessionId ? ['--resume', options.resumeSessionId] : [],
+          args: buildResumeArgs(profile, options.resumeSessionId, options.resumeEngine),
           cols: options.cols || 120,
           rows: options.rows || 40,
         });

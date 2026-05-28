@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useAppStore } from '../../stores/app-store';
 import { useSessionStore } from '../../stores/session-store';
 
@@ -9,7 +9,7 @@ const i18n = {
     switch: '\u5207\u6362',
     terminal: '\u7ec8\u7aef',
     reading: '\u9605\u8bfb',
-    model: '\u6a21\u578b',
+    engine: '\u5f15\u64ce',
     noProfiles: '\u6682\u65e0\u914d\u7f6e',
     toggleSidebar: '\u5207\u6362\u5de6\u4fa7\u9879\u76ee\u680f',
     toggleSkills: '\u5207\u6362\u53f3\u4fa7 Skills \u9762\u677f',
@@ -21,7 +21,7 @@ const i18n = {
     switch: 'Switch',
     terminal: 'Terminal',
     reading: 'Reading',
-    model: 'Model',
+    engine: 'Engine',
     noProfiles: 'No profiles',
     toggleSidebar: 'Toggle project sidebar',
     toggleSkills: 'Toggle Skills panel',
@@ -36,7 +36,6 @@ export const Topbar: React.FC = () => {
     currentProjectPath,
     toggleSidebar,
     toggleSkillsPanel,
-    loadProfiles,
     setActiveProfile,
     setCurrentProjectPath,
     mainView,
@@ -46,10 +45,6 @@ export const Topbar: React.FC = () => {
 
   const { loadProjects } = useSessionStore();
   const t = i18n[language];
-
-  useEffect(() => {
-    loadProfiles();
-  }, [loadProfiles]);
 
   const handleSelectProject = async () => {
     const dir = await window.ccodex.selectDirectory();
@@ -106,12 +101,12 @@ export const Topbar: React.FC = () => {
       <div className="topbar__spacer" />
 
       <div className="topbar__section">
-        <span className="topbar__label">{t.model}</span>
+        <span className="topbar__label">{t.engine}</span>
         <select className="topbar__select" value={activeProfileId || ''} onChange={handleProfileChange}>
           {profiles.length === 0 && <option value="">{t.noProfiles}</option>}
           {profiles.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.name} {p.mode === 'ccr' ? '(CCR)' : ''}
+              {p.name} ({profileModeLabel(p.mode)})
             </option>
           ))}
         </select>
@@ -124,3 +119,9 @@ export const Topbar: React.FC = () => {
     </header>
   );
 };
+
+function profileModeLabel(mode: 'env' | 'ccr' | 'codex'): string {
+  if (mode === 'ccr') return 'CCR';
+  if (mode === 'codex') return 'Codex';
+  return 'Claude';
+}

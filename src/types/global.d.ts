@@ -14,6 +14,7 @@ interface CCodexAPI {
     projectPath: string;
     profileId?: string;
     resumeSessionId?: string;
+    resumeEngine?: 'claude' | 'codex';
     cols?: number;
     rows?: number;
   }) => Promise<IpcResult<{ pid: number }>>;

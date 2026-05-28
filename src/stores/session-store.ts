@@ -18,6 +18,8 @@ interface SessionState {
 
 export type { ProjectSummary, SessionMeta };
 
+let projectsRequest: Promise<void> | null = null;
+
 export const useSessionStore = create<SessionState>((set, get) => ({
   projects: [],
   loading: false,
@@ -27,17 +29,25 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   sessionSearchQuery: '',
 
   loadProjects: async () => {
+    if (projectsRequest) return projectsRequest;
+
     set({ loading: true, error: null });
-    try {
-      const result = await window.ccodex.scanProjects();
-      if (result.success) {
-        set({ projects: result.data!, loading: false });
-      } else {
-        set({ error: result.error || 'Unknown error', loading: false });
+    projectsRequest = (async () => {
+      try {
+        const result = await window.ccodex.scanProjects();
+        if (result.success) {
+          set({ projects: result.data!, loading: false });
+        } else {
+          set({ error: result.error || 'Unknown error', loading: false });
+        }
+      } catch (err) {
+        set({ error: String(err), loading: false });
+      } finally {
+        projectsRequest = null;
       }
-    } catch (err) {
-      set({ error: String(err), loading: false });
-    }
+    })();
+
+    return projectsRequest;
   },
 
   selectProject: (project) => set({ selectedProject: project }),

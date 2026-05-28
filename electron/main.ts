@@ -4,7 +4,19 @@ import { registerIpcHandlers } from './ipc-handlers';
 
 let mainWindow: BrowserWindow | null = null;
 
-const isDev = process.env.NODE_ENV !== 'production' || !app.isPackaged;
+const isDev = !app.isPackaged;
+
+process.on('uncaughtException', (err) => {
+  console.error('[main] uncaughtException:', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[main] unhandledRejection:', reason);
+});
+
+process.on('exit', (code) => {
+  console.log(`[main] process exit: ${code}`);
+});
 
 function sendMenuAction(action: string): void {
   mainWindow?.webContents.send('menu:action', action);
@@ -16,6 +28,7 @@ function createWindow(): void {
     height: 900,
     minWidth: 1000,
     minHeight: 600,
+    show: false,
     title: 'CCodex Studio',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -30,9 +43,24 @@ function createWindow(): void {
 
   registerIpcHandlers(mainWindow);
 
+  let hasShown = false;
+  const showMainWindow = (): void => {
+    if (hasShown || !mainWindow || mainWindow.isDestroyed()) {
+      return;
+    }
+
+    hasShown = true;
+    mainWindow.show();
+  };
+
+  mainWindow.once('ready-to-show', showMainWindow);
+  mainWindow.webContents.once('did-finish-load', showMainWindow);
+
   if (isDev) {
     mainWindow.loadURL('http://localhost:9000');
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
+    if (process.env.CCODEX_OPEN_DEVTOOLS === '1') {
+      mainWindow.webContents.openDevTools({ mode: 'detach' });
+    }
   } else {
     mainWindow.loadFile(path.join(__dirname, '..', 'dist-renderer', 'index.html'));
   }

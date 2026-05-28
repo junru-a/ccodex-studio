@@ -46,8 +46,36 @@ function classifyRole(msg: Record<string, unknown>): SessionPreviewMessage['role
   const type = String(msg.type || '');
   if (type === 'user') return 'user';
   if (type === 'assistant') return 'assistant';
+  if (type === 'event_msg') {
+    const payload = msg.payload as Record<string, unknown> | undefined;
+    if (payload?.type === 'user_message') return 'user';
+    if (payload?.type === 'agent_message') return 'assistant';
+  }
+  if (type === 'response_item') {
+    const payload = msg.payload as Record<string, unknown> | undefined;
+    const role = String(payload?.role || '');
+    if (role === 'user') return 'user';
+    if (role === 'assistant') return 'assistant';
+    if (role === 'tool') return 'tool';
+  }
   if (type.includes('tool') || type.includes('result')) return 'tool';
   return 'system';
+}
+
+function textFromCodexMessage(msg: Record<string, unknown>): string {
+  const payload = msg.payload as Record<string, unknown> | undefined;
+  if (!payload) return '';
+
+  if (msg.type === 'event_msg') {
+    if (typeof payload.message === 'string') return payload.message;
+    return '';
+  }
+
+  if (msg.type === 'response_item' && payload.type === 'message') {
+    return textFromContent(payload.content);
+  }
+
+  return '';
 }
 
 function collectKeywords(text: string): string[] {
@@ -123,7 +151,7 @@ export function buildSessionInsight(session: SessionMeta | null, rawMessages: ob
     const msg = raw as Record<string, unknown>;
     const role = classifyRole(msg);
     const message = msg.message as Record<string, unknown> | undefined;
-    const text = textFromContent(message?.content ?? msg.content);
+    const text = textFromCodexMessage(msg) || textFromContent(message?.content ?? msg.content);
     if (!text.trim()) continue;
     messages.push({ role, text: text.trim().slice(0, 2000) });
     if (messages.length >= 80) break;

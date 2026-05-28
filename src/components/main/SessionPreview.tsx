@@ -34,7 +34,7 @@ const copy = {
     noTodos: '\u6ca1\u6709\u8bc6\u522b\u5230\u660e\u786e\u5f85\u529e\u3002',
     noFiles: '\u6682\u672a\u8bc6\u522b\u5230\u6587\u4ef6\u8def\u5f84\u3002',
     user: '\u4f60',
-    assistant: 'Claude',
+    assistant: '\u52a9\u624b',
     tool: '\u5de5\u5177',
     system: '\u7cfb\u7edf',
   },
@@ -57,7 +57,7 @@ const copy = {
     noTodos: 'No clear todo detected.',
     noFiles: 'No file path detected.',
     user: 'You',
-    assistant: 'Claude',
+    assistant: 'Assistant',
     tool: 'Tool',
     system: 'System',
   },
@@ -70,6 +70,8 @@ export const SessionPreview: React.FC<SessionPreviewProps> = ({ mode = 'standalo
     mainView,
     setMainView,
     requestResumeSession,
+    profiles,
+    setActiveProfile,
   } = useAppStore();
   const { projects, selectedSessionId } = useSessionStore();
   const [loading, setLoading] = useState(false);
@@ -175,6 +177,13 @@ export const SessionPreview: React.FC<SessionPreviewProps> = ({ mode = 'standalo
   }
 
   const latestMessages = insight.messages.slice(-12);
+  const handleResumeSelected = async () => {
+    if (selectedSession.engine === 'codex') {
+      const codexProfile = profiles.find((profile) => profile.mode === 'codex');
+      if (codexProfile) await setActiveProfile(codexProfile.id);
+    }
+    requestResumeSession(selectedSession.id, selectedSession.projectPath, selectedSession.engine);
+  };
 
   return (
     <aside className={className}>
@@ -196,7 +205,7 @@ export const SessionPreview: React.FC<SessionPreviewProps> = ({ mode = 'standalo
           </button>
           <button
             className="btn btn--primary btn--small"
-            onClick={() => requestResumeSession(selectedSession.id, selectedSession.projectPath)}
+            onClick={handleResumeSelected}
           >
             {t.resume}
           </button>

@@ -1,12 +1,21 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { Topbar } from './components/topbar/Topbar';
 import { Sidebar } from './components/sidebar/Sidebar';
 import { TerminalView } from './components/main/TerminalView';
-import { SessionPreview } from './components/main/SessionPreview';
 import { ProjectContextStrip } from './components/main/ProjectContextStrip';
-import { SkillsCenter } from './components/skills/SkillsCenter';
 import { useAppStore } from './stores/app-store';
+import { useContextStore } from './stores/context-store';
+import { useSessionStore } from './stores/session-store';
+import { useSkillsStore } from './stores/skills-store';
 import './styles/global.css';
+
+const SessionPreview = lazy(() =>
+  import('./components/main/SessionPreview').then((module) => ({ default: module.SessionPreview }))
+);
+
+const SkillsCenter = lazy(() =>
+  import('./components/skills/SkillsCenter').then((module) => ({ default: module.SkillsCenter }))
+);
 
 export const App: React.FC = () => {
   const {
@@ -15,7 +24,11 @@ export const App: React.FC = () => {
     detectCCR,
     loadProfiles,
     mainView,
+    currentProjectPath,
   } = useAppStore();
+  const loadProjects = useSessionStore((state) => state.loadProjects);
+  const loadSkills = useSkillsStore((state) => state.loadSkills);
+  const loadProjectContext = useContextStore((state) => state.loadProjectContext);
   const [sidebarWidth, setSidebarWidth] = useState(292);
   const [skillsWidth, setSkillsWidth] = useState(344);
   const [artifactWidth, setArtifactWidth] = useState(560);
@@ -51,9 +64,18 @@ export const App: React.FC = () => {
   }, [skillsPanelVisible, skillsWidth]);
 
   useEffect(() => {
-    loadProfiles();
-    detectCCR();
-  }, [loadProfiles, detectCCR]);
+    void loadProjects();
+    void Promise.all([loadProfiles(), detectCCR()]);
+  }, [detectCCR, loadProfiles, loadProjects]);
+
+  useEffect(() => {
+    return scheduleIdleTask(() => {
+      void Promise.all([
+        loadSkills(currentProjectPath || undefined),
+        loadProjectContext(currentProjectPath),
+      ]);
+    }, 280);
+  }, [currentProjectPath, loadProjectContext, loadSkills]);
 
   // Listen for menu actions from Electron main process
   useEffect(() => {
@@ -118,7 +140,9 @@ export const App: React.FC = () => {
               aria-orientation="vertical"
               onMouseDown={() => startResize('artifact')}
             />
-            <SessionPreview mode="artifact" />
+            <Suspense fallback={<ArtifactSkeleton />}>
+              <SessionPreview mode="artifact" />
+            </Suspense>
           </div>
         </div>
         {skillsPanelVisible && (
@@ -129,7 +153,11 @@ export const App: React.FC = () => {
             onMouseDown={() => startResize('skills')}
           />
         )}
-        <SkillsCenter visible={skillsPanelVisible} />
+        {skillsPanelVisible && (
+          <Suspense fallback={<SkillsPanelSkeleton />}>
+            <SkillsCenter visible={skillsPanelVisible} />
+          </Suspense>
+        )}
       </div>
     </div>
   );
@@ -138,3 +166,61 @@ export const App: React.FC = () => {
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
+
+function scheduleIdleTask(task: () => void, fallbackDelay: number): () => void {
+  if ('requestIdleCallback' in window) {
+    const id = window.requestIdleCallback(task, { timeout: 1200 });
+    return () => window.cancelIdleCallback(id);
+  }
+
+  const id = globalThis.setTimeout(task, fallbackDelay);
+  return () => globalThis.clearTimeout(id);
+}
+
+const ArtifactSkeleton: React.FC = () => (
+  <aside className="session-preview session-preview--artifact artifact-skeleton" aria-hidden="true">
+    <div className="session-preview__toolbar">
+      <div className="session-preview__toolbar-copy">
+        <div className="skeleton-line skeleton-line--xs" />
+        <div className="skeleton-line skeleton-line--title" />
+        <div className="skeleton-line skeleton-line--medium" />
+      </div>
+      <div className="session-preview__actions">
+        <div className="skeleton-button" />
+        <div className="skeleton-button" />
+      </div>
+    </div>
+    <div className="session-preview__grid session-preview__grid--artifact">
+      <div className="context-card context-card--skeleton">
+        <div className="skeleton-line skeleton-line--xs" />
+        <div className="skeleton-line" />
+        <div className="skeleton-line skeleton-line--wide" />
+      </div>
+      <div className="context-card context-card--skeleton">
+        <div className="skeleton-line skeleton-line--xs" />
+        <div className="skeleton-line skeleton-line--medium" />
+      </div>
+    </div>
+  </aside>
+);
+
+const SkillsPanelSkeleton: React.FC = () => (
+  <aside className="skills-panel skills-panel--skeleton" aria-hidden="true">
+    <div className="skills-panel__header">
+      <div className="skeleton-line skeleton-line--short" />
+      <div className="skeleton-button skeleton-button--small" />
+    </div>
+    <div className="skills-panel__search">
+      <div className="skeleton-input" />
+    </div>
+    <div className="skills-skeleton-list">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div key={index} className="skill-item skill-item--skeleton">
+          <div className="skeleton-line skeleton-line--medium" />
+          <div className="skeleton-line" />
+          <div className="skeleton-line skeleton-line--wide" />
+        </div>
+      ))}
+    </div>
+  </aside>
+);
